@@ -1,11 +1,13 @@
 import tkinter as tk
 from tkinter import messagebox
 
+import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
+from matplotlib.ticker import MaxNLocator
 
 
 def box_plot_graph(*groups):
@@ -91,6 +93,70 @@ def box_plot_graph(*groups):
         Line2D([0], [0], marker="o", color="gray", alpha=0.6, markersize=6, linestyle="None", label="Data Point"),
     ]
     axis.legend(handles=legend_elements, loc="upper left")
+    axis.yaxis.set_major_locator(MaxNLocator(nbins=10))
+    axis.tick_params(axis="y", which="major", labelsize=10)
+    axis.grid(axis="y", alpha=0.2, linestyle="--")
+    figure.tight_layout()
+    return figure
+
+
+def bar_graph(*groups):
+    prepared_groups = []
+
+    for group in groups:
+        values = []
+        for value in group:
+            try:
+                values.append(float(value))
+            except (TypeError, ValueError):
+                pass
+        if values:
+            prepared_groups.append(values)
+
+    if not prepared_groups:
+        messagebox.showwarning("Bar Graph", "No valid numeric data was found for the bar graph.")
+        return None
+
+    # Calculate statistics for each group
+    stats = []
+    for values in prepared_groups:
+        series = pd.Series(values)
+        stats.append({
+            "mean": series.mean(),
+            "median": series.median(),
+            "std_dev": series.std()
+        })
+
+    # Prepare data for plotting
+    group_labels = [f"Group {i+1}" for i in range(len(prepared_groups))]
+    means = [s["mean"] for s in stats]
+    medians = [s["median"] for s in stats]
+    std_devs = [s["std_dev"] for s in stats]
+
+    figure = Figure(figsize=(10, 6), dpi=100)
+    axis = figure.add_subplot(111)
+
+    # Set up bar positions
+    x = np.arange(len(group_labels))
+    width = 0.35
+
+    # Create bars
+    bars1 = axis.bar(x - width/2, means, width, label="Mean", color="#6c0987", alpha=0.8)
+    bars2 = axis.bar(x + width/2, medians, width, label="Median", color="#d871f5", alpha=0.8)
+
+    # Labels and title
+    axis.set_xlabel("Groups", fontsize=12, fontweight="bold")
+    axis.set_ylabel("Value", fontsize=12, fontweight="bold")
+    axis.set_title("Mean and Median Comparison by Group", fontsize=14, fontweight="bold")
+    axis.set_xticks(x)
+    axis.set_xticklabels(group_labels)
+    axis.legend(fontsize=11)
+    
+    # Add more granular y-axis ticks
+    axis.yaxis.set_major_locator(MaxNLocator(nbins=10))
+    axis.grid(axis="y", alpha=0.3, linestyle="--", which="both")
+    axis.tick_params(axis="y", which="major", labelsize=10)
+
     figure.tight_layout()
     return figure
 
@@ -164,7 +230,8 @@ class VisualizationWindow(tk.Toplevel):
             bg="white",
             font=("Verdana", 10, "bold"),
             padx=12,
-            pady=8
+            pady=8,
+            command=self.show_bar_graph
         ).pack(side="left", padx=5)
 
         tk.Button(
@@ -209,6 +276,9 @@ class VisualizationWindow(tk.Toplevel):
 
     def show_box_plot(self):
         self.display_figure(box_plot_graph(*[group["values"] for group in self.source_window.get_all_data()]))
+
+    def show_bar_graph(self):
+        self.display_figure(bar_graph(*[group["values"] for group in self.source_window.get_all_data()]))
 
     def display_figure(self, figure):
         if figure is None:
